@@ -134,17 +134,14 @@ final class LauncherStrings {
         put("Factory reset: restore the default layout and delete all macros?",
             "Padrão de fábrica: restaurar o layout padrão e apagar todas as macros?");
         put("Quick macros (presets)", "Macros prontas");
-        put("Hall of Meat: both triggers held together", "Hall of Meat: os dois gatilhos juntos");
-        put("Both triggers locked (tap on, tap off) - frees both thumbs",
-            "Os dois gatilhos travados (toque liga, toque desliga) - libera os polegares");
-        put("Hold LT locked (tap on, tap off)", "LT travado (toque liga, toque desliga)");
-        put("Hold RT locked (tap on, tap off)", "RT travado (toque liga, toque desliga)");
-        put("Both bumpers with one finger", "Os dois bumpers com um dedo");
-        put("LT + A together", "LT + A juntos");
-        put("RT + A together", "RT + A juntos");
-        put("LT + X together", "LT + X juntos");
-        put("RT + B together", "RT + B juntos");
-        put("Both stick clicks with one finger", "Os dois cliques dos analógicos com um dedo");
+        put("Hall of Meat: both triggers (LT+RT) while held",
+            "Hall of Meat: os dois gatilhos (LT+RT) enquanto segurado");
+        put("Hall of Meat, locked: tap once and keep both thumbs on the sticks to steer the bail",
+            "Hall of Meat travado: toque uma vez e mantenha os dois polegares nos analógicos para guiar o tombo");
+        put("Left-hand grab locked: tap once, keep the grab through the air while the thumb flicks",
+            "Grab da mão esquerda travado: toque uma vez e mantenha o grab no ar enquanto o polegar faz o flick");
+        put("Right-hand grab locked: tap once, keep the grab through the air while the thumb flicks",
+            "Grab da mão direita travado: toque uma vez e mantenha o grab no ar enquanto o polegar faz o flick");
         put("Reset every size and position and delete all macros?",
             "Restaurar todos os tamanhos e posições e apagar todas as macros?");
         put("Move buttons on screen", "Mover botões na tela");

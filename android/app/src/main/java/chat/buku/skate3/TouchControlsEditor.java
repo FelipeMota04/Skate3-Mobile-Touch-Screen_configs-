@@ -126,20 +126,14 @@ final class TouchControlsEditor {
 
     /** Ready-made macros: label, description, mask, toggle mode. */
     private static final Object[][] PRESETS = {
-        {"LT+RT", "Hall of Meat: both triggers held together",
+        {"HoM", "Hall of Meat: both triggers (LT+RT) while held",
             TouchLayout.LT_FLAG | TouchLayout.RT_FLAG, false},
-        {"LT+RT", "Both triggers locked (tap on, tap off) - frees both thumbs",
+        {"HoM\u2605", "Hall of Meat, locked: tap once and keep both thumbs on the sticks to steer the bail",
             TouchLayout.LT_FLAG | TouchLayout.RT_FLAG, true},
-        {"HLD L", "Hold LT locked (tap on, tap off)", TouchLayout.LT_FLAG, true},
-        {"HLD R", "Hold RT locked (tap on, tap off)", TouchLayout.RT_FLAG, true},
-        {"LB+RB", "Both bumpers with one finger",
-            TouchLayout.LB | TouchLayout.RB, false},
-        {"LT+A", "LT + A together", TouchLayout.LT_FLAG | TouchLayout.A, false},
-        {"RT+A", "RT + A together", TouchLayout.RT_FLAG | TouchLayout.A, false},
-        {"LT+X", "LT + X together", TouchLayout.LT_FLAG | TouchLayout.X, false},
-        {"RT+B", "RT + B together", TouchLayout.RT_FLAG | TouchLayout.B, false},
-        {"L3+R3", "Both stick clicks with one finger",
-            TouchLayout.L3 | TouchLayout.R3, false},
+        {"GRB L", "Left-hand grab locked: tap once, keep the grab through the air while the thumb flicks",
+            TouchLayout.LT_FLAG, true},
+        {"GRB R", "Right-hand grab locked: tap once, keep the grab through the air while the thumb flicks",
+            TouchLayout.RT_FLAG, true},
     };
 
     private void showPresets() {
