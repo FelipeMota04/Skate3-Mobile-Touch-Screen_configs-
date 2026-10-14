@@ -74,6 +74,7 @@ public class LauncherActivity extends Activity {
     private Button characterButton;
     private Button submitModButton;
     private Button gpuDriverButton;
+    private Button touchControlsButton;
     private Button secondaryButton;
     private Button tertiaryButton;
     private Button updateButton;
@@ -191,6 +192,7 @@ public class LauncherActivity extends Activity {
         characterButton = actionButton(false);
         submitModButton = actionButton(false);
         gpuDriverButton = actionButton(false);
+        touchControlsButton = actionButton(false);
         secondaryButton = actionButton(false);
         tertiaryButton = actionButton(false);
         updateButton = actionButton(false);
@@ -206,6 +208,8 @@ public class LauncherActivity extends Activity {
         content.addView(reportButton, matchFixed(dp(50), dp(18)));
         setButton(reportButton, "BUG REPORT / DEVICE DIAGNOSTICS",
                   view -> BugReporter.show(this), false);
+        content.addView(touchControlsButton, matchFixed(dp(46), dp(10)));
+        hide(touchControlsButton);
         content.addView(gpuDriverButton, matchFixed(dp(46), dp(18)));
 
         TextView requirements = text(
@@ -250,6 +254,7 @@ public class LauncherActivity extends Activity {
             setButton(primaryButton, "CLOSE", view -> finish(), true);
             hide(characterButton);
             hide(gpuDriverButton);
+            hide(touchControlsButton);
             hide(secondaryButton);
             hide(tertiaryButton);
             return;
@@ -265,6 +270,8 @@ public class LauncherActivity extends Activity {
             setButton(primaryButton, "PLAY SKATE 3", view -> launchGame(), true);
             configureSeiyuInstallButton(activeGame);
             configureAdvancedButton();
+            setButton(touchControlsButton, "TOUCH CONTROLS",
+                      view -> TouchControlsEditor.show(this, null, null), false);
             if (scopedReady) {
                 setButton(secondaryButton, "REPAIR OR REINSTALL", view -> confirmReinstall(), false);
             } else {
@@ -280,6 +287,7 @@ public class LauncherActivity extends Activity {
             setButton(primaryButton, "FINISH SETUP AUTOMATICALLY", view -> finishSetupOnline(), true);
             hide(characterButton);
             hide(gpuDriverButton);
+            hide(touchControlsButton);
             setButton(secondaryButton, "SELECT TITLE UPDATE FILE", view -> pickTitleUpdate(), false);
             setButton(tertiaryButton, "START OVER", view -> confirmStartOver(), false);
             return;
@@ -1405,6 +1413,7 @@ public class LauncherActivity extends Activity {
         characterButton.setEnabled(enabled);
         submitModButton.setEnabled(enabled);
         gpuDriverButton.setEnabled(enabled);
+        touchControlsButton.setEnabled(enabled);
         secondaryButton.setEnabled(enabled);
         tertiaryButton.setEnabled(enabled);
         updateButton.setEnabled(enabled && !checkingUpdate);

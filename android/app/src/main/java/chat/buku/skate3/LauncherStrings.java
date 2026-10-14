@@ -116,6 +116,37 @@ final class LauncherStrings {
         put("Open GitHub", "Abrir GitHub");
         put("Device diagnostics copied.", "Diagnóstico do dispositivo copiado.");
         put("No browser is available. The diagnostics are copied.", "Nenhum navegador está disponível. O diagnóstico foi copiado.");
+        put("TOUCH CONTROLS", "CONTROLES DE TOQUE");
+        put("Touch controls", "Controles de toque");
+        put("Done", "Concluir");
+        put("Reset all", "Restaurar tudo");
+        put("Reset", "Restaurar");
+        put("Reset every size and position and delete all macros?",
+            "Restaurar todos os tamanhos e posições e apagar todas as macros?");
+        put("Move buttons on screen", "Mover botões na tela");
+        put("Button size", "Tamanho dos botões");
+        put("Left stick", "Analógico esquerdo");
+        put("Right stick", "Analógico direito");
+        put("D-pad", "Direcional");
+        put("Macros", "Macros");
+        put("A macro is an extra button that presses several inputs at once, e.g. LT + RT for Hall of Meat.",
+            "Macro é um botão extra que aciona vários comandos ao mesmo tempo, ex.: LT + RT no Hall of Meat.");
+        put("Add macro", "Adicionar macro");
+        put("Add LT + RT macro (Hall of Meat)", "Adicionar macro LT + RT (Hall of Meat)");
+        put("toggle", "alternar");
+        put("Edit", "Editar");
+        put("Delete", "Apagar");
+        put("Button label (max 5 characters)", "Nome do botão (máx. 5 caracteres)");
+        put("Inputs pressed together", "Comandos acionados juntos");
+        put("Toggle mode (tap to hold, tap again to release)",
+            "Modo alternar (toque para segurar, toque de novo para soltar)");
+        put("New macro", "Nova macro");
+        put("Edit macro", "Editar macro");
+        put("Save", "Salvar");
+        put("Select at least one input", "Selecione ao menos um comando");
+        put("Cancel", "Cancelar");
+        put("EDIT LAYOUT", "EDITAR LAYOUT");
+        put("Drag a button to move it", "Arraste um botão para movê-lo");
     }
 
     private LauncherStrings() {}

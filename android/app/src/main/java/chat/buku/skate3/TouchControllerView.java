@@ -13,25 +13,13 @@ import android.view.View;
 
 import org.libsdl.app.SDLControllerManager;
 
+import static chat.buku.skate3.TouchLayout.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /** A lightweight multitouch Xbox-style controller layered over the SDL surface. */
 public final class TouchControllerView extends View {
-    private static final int DPAD_UP = 0x0001;
-    private static final int DPAD_DOWN = 0x0002;
-    private static final int DPAD_LEFT = 0x0004;
-    private static final int DPAD_RIGHT = 0x0008;
-    private static final int START = 0x0010;
-    private static final int BACK = 0x0020;
-    private static final int L3 = 0x0040;
-    private static final int R3 = 0x0080;
-    private static final int LB = 0x0100;
-    private static final int RB = 0x0200;
-    private static final int A = 0x1000;
-    private static final int B = 0x2000;
-    private static final int X = 0x4000;
-    private static final int Y = 0x8000;
     private static final String PREFS = "skate3_touch_controller";
     private static final String PREF_VISIBLE = "visible";
 
@@ -43,13 +31,21 @@ public final class TouchControllerView extends View {
     private final SharedPreferences preferences;
     private boolean controlsVisible;
     private RectF toggle = new RectF();
+    private final RectF gear = new RectF();
+    private final RectF editDone = new RectF();
+    private final RectF editMinus = new RectF();
+    private final RectF editPlus = new RectF();
+    private final TouchLayout layout;
+    private boolean editMode;
+    private String selectedId;
+    private int dragPointer = -1;
+    private float dragX;
+    private float dragY;
     private float lastWidth;
     private float lastHeight;
 
     private Stick leftStick;
     private Stick rightStick;
-    private Trigger leftTrigger;
-    private Trigger rightTrigger;
 
     public TouchControllerView(Context context) {
         super(context);
@@ -62,13 +58,14 @@ public final class TouchControllerView extends View {
         label.setTextAlign(Paint.Align.CENTER);
         label.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        layout = new TouchLayout(context);
         controlsVisible = preferences.contains(PREF_VISIBLE)
             ? preferences.getBoolean(PREF_VISIBLE, true)
             : !hasPhysicalController();
     }
 
     public void clearInput() {
-        for (Control control : controls) control.release();
+        for (Control control : controls) control.reset();
         pointers.clear();
         sendState();
         invalidate();
@@ -98,6 +95,32 @@ public final class TouchControllerView extends View {
         buildControls(width, height);
     }
 
+    private float posX(String id, float basePx) {
+        float value = basePx + layout.offsetX(id) * lastWidth;
+        return Math.max(0, Math.min(lastWidth, value));
+    }
+
+    private float posY(String id, float basePx) {
+        float value = basePx + layout.offsetY(id) * lastHeight;
+        return Math.max(0, Math.min(lastHeight, value));
+    }
+
+    private void addButton(String id, String text, float x, float y, float radius, int mask) {
+        float r = radius * layout.scale(id);
+        controls.add(new ButtonControl(text, posX(id, x), posY(id, y), r, mask).withId(id));
+    }
+
+    private void addRect(String id, String text, float x, float y, float w, float h,
+                         int mask, int triggerFlag) {
+        float s = layout.scale(id);
+        controls.add(new RectButton(text, posX(id, x), posY(id, y), w * s, h * s,
+                                    mask, triggerFlag).withId(id));
+    }
+
+    private void reload() {
+        if (lastWidth > 0 && lastHeight > 0) buildControls(lastWidth, lastHeight);
+    }
+
     private void buildControls(float width, float height) {
         lastWidth = width;
         lastHeight = height;
@@ -106,55 +129,118 @@ public final class TouchControllerView extends View {
         float stickRadius = unit * 0.78f;
         float buttonRadius = unit * 0.38f;
 
-        leftStick = new Stick("L", width * .16f, height * .73f, stickRadius, true);
-        rightStick = new Stick("R", width * .67f, height * .77f, stickRadius, false);
-        controls.add(leftStick);
-        controls.add(rightStick);
+        leftStick = new Stick("L", posX("lstick", width * .16f), posY("lstick", height * .73f),
+                              stickRadius * layout.scale("lstick"), true);
+        rightStick = new Stick("R", posX("rstick", width * .67f), posY("rstick", height * .77f),
+                               stickRadius * layout.scale("rstick"), false);
+        controls.add(leftStick.withId("lstick"));
+        controls.add(rightStick.withId("rstick"));
 
-        float dpadX = width * .32f;
-        float dpadY = height * .72f;
-        controls.add(new Dpad(dpadX, dpadY, unit * .98f));
+        controls.add(new Dpad(posX("dpad", width * .32f), posY("dpad", height * .72f),
+                              unit * .98f * layout.scale("dpad")).withId("dpad"));
 
         float faceX = width * .85f;
         float faceY = height * .68f;
-        controls.add(new ButtonControl("A", faceX, faceY + unit * .68f, buttonRadius, A));
-        controls.add(new ButtonControl("B", faceX + unit * .68f, faceY, buttonRadius, B));
-        controls.add(new ButtonControl("X", faceX - unit * .68f, faceY, buttonRadius, X));
-        controls.add(new ButtonControl("Y", faceX, faceY - unit * .68f, buttonRadius, Y));
+        addButton("A", "A", faceX, faceY + unit * .68f, buttonRadius, A);
+        addButton("B", "B", faceX + unit * .68f, faceY, buttonRadius, B);
+        addButton("X", "X", faceX - unit * .68f, faceY, buttonRadius, TouchLayout.X);
+        addButton("Y", "Y", faceX, faceY - unit * .68f, buttonRadius, TouchLayout.Y);
 
         float shoulderW = unit * 1.25f;
         float shoulderH = unit * .55f;
-        leftTrigger = new Trigger("LT", width * .07f, height * .10f, shoulderW, shoulderH, true);
-        rightTrigger = new Trigger("RT", width * .93f, height * .10f, shoulderW, shoulderH, false);
-        controls.add(leftTrigger);
-        controls.add(new RectButton("LB", width * .20f, height * .10f, shoulderW, shoulderH, LB));
-        controls.add(new RectButton("RB", width * .80f, height * .10f, shoulderW, shoulderH, RB));
-        controls.add(rightTrigger);
+        addRect("LT", "LT", width * .07f, height * .10f, shoulderW, shoulderH, 0, LT_FLAG);
+        addRect("LB", "LB", width * .20f, height * .10f, shoulderW, shoulderH, LB, 0);
+        addRect("RB", "RB", width * .80f, height * .10f, shoulderW, shoulderH, RB, 0);
+        addRect("RT", "RT", width * .93f, height * .10f, shoulderW, shoulderH, 0, RT_FLAG);
 
-        controls.add(new RectButton("BACK", width * .44f, height * .79f,
-                                    unit * .82f, unit * .45f, BACK));
-        controls.add(new RectButton("START", width * .55f, height * .79f,
-                                    unit * .92f, unit * .45f, START));
-        controls.add(new ButtonControl("L3", width * .07f, height * .48f,
-                                       buttonRadius * .82f, L3));
-        controls.add(new ButtonControl("R3", width * .73f, height * .48f,
-                                       buttonRadius * .82f, R3));
+        addRect("BACK", "BACK", width * .44f, height * .79f, unit * .82f, unit * .45f, BACK, 0);
+        addRect("START", "START", width * .55f, height * .79f, unit * .92f, unit * .45f, START, 0);
+        addButton("L3", "L3", width * .07f, height * .48f, buttonRadius * .82f, L3);
+        addButton("R3", "R3", width * .73f, height * .48f, buttonRadius * .82f, R3);
+
+        List<Macro> macros = layout.macros();
+        for (int i = 0; i < macros.size(); ++i) {
+            Macro macro = macros.get(i);
+            float baseX = width * (.93f - .09f * (i / 4));
+            float baseY = height * (.27f + .13f * (i % 4));
+            float radius = buttonRadius * 1.05f * layout.scale(macro.id);
+            controls.add(new MacroControl(macro, posX(macro.id, baseX),
+                                          posY(macro.id, baseY), radius).withId(macro.id));
+        }
 
         float toggleWidth = controlsVisible ? unit * 1.05f : unit * 1.35f;
         float toggleTop = Math.max(dp(18), height * .035f);
+        float barHeight = unit * .46f;
         toggle.set(width * .5f - toggleWidth * .5f, toggleTop,
-                   width * .5f + toggleWidth * .5f, toggleTop + unit * .46f);
+                   width * .5f + toggleWidth * .5f, toggleTop + barHeight);
+        gear.set(toggle.right + dp(8), toggleTop, toggle.right + dp(8) + barHeight,
+                 toggleTop + barHeight);
+
+        // Edit-layout toolbar: [ - ] [ DONE ] [ + ]
+        float doneW = unit * 1.3f;
+        editDone.set(width * .5f - doneW / 2, toggleTop, width * .5f + doneW / 2,
+                     toggleTop + barHeight);
+        editMinus.set(editDone.left - dp(8) - barHeight, toggleTop, editDone.left - dp(8),
+                      toggleTop + barHeight);
+        editPlus.set(editDone.right + dp(8), toggleTop, editDone.right + dp(8) + barHeight,
+                     toggleTop + barHeight);
         sendState();
         invalidate();
+    }
+
+    /** Opens the in-game touch controls settings panel. */
+    private void openSettings() {
+        clearInput();
+        TouchControlsEditor.show(getContext(), this::reload, () -> {
+            editMode = true;
+            selectedId = null;
+            invalidate();
+        });
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        if (editMode) {
+            for (Control control : controls) control.draw(canvas);
+            drawEditOverlay(canvas);
+            return;
+        }
         drawToggle(canvas);
         if (!controlsVisible) return;
         for (Control control : controls) control.draw(canvas);
     }
+
+    private void drawBarButton(Canvas canvas, RectF rect, String text) {
+        fill.setColor(Color.argb(175, 15, 15, 18));
+        stroke.setColor(Color.argb(220, 255, 112, 28));
+        canvas.drawRoundRect(rect, dp(9), dp(9), fill);
+        canvas.drawRoundRect(rect, dp(9), dp(9), stroke);
+        drawLabel(canvas, text, rect.centerX(), rect.centerY(), dp(11));
+    }
+
+    private void drawEditOverlay(Canvas canvas) {
+        canvas.drawColor(Color.argb(70, 0, 0, 0));
+        for (Control control : controls) {
+            if (control.id != null && control.id.equals(selectedId)) {
+                stroke.setColor(Color.argb(255, 255, 112, 28));
+                stroke.setStrokeWidth(dp(3));
+                RectF b = control.bounds();
+                canvas.drawRoundRect(b.left - dp(6), b.top - dp(6), b.right + dp(6),
+                                     b.bottom + dp(6), dp(10), dp(10), stroke);
+                stroke.setStrokeWidth(dp(2));
+            }
+        }
+        drawBarButton(canvas, editMinus, "-");
+        drawBarButton(canvas, editDone, LauncherStrings.text(getContext(), "Done"));
+        drawBarButton(canvas, editPlus, "+");
+        label.setTextSize(dp(11));
+        canvas.drawText(LauncherStrings.text(getContext(), "EDIT LAYOUT") + " - " +
+                        LauncherStrings.text(getContext(), "Drag a button to move it"),
+                        width() / 2f, editDone.bottom + dp(22), label);
+    }
+
+    private float width() { return getWidth(); }
 
     private void drawToggle(Canvas canvas) {
         fill.setColor(Color.argb(175, 15, 15, 18));
@@ -163,6 +249,9 @@ public final class TouchControllerView extends View {
         canvas.drawRoundRect(toggle, dp(9), dp(9), stroke);
         drawLabel(canvas, controlsVisible ? "HIDE" : "TOUCH", toggle.centerX(),
                   toggle.centerY(), dp(11));
+        canvas.drawRoundRect(gear, dp(9), dp(9), fill);
+        canvas.drawRoundRect(gear, dp(9), dp(9), stroke);
+        drawLabel(canvas, "\u2699", gear.centerX(), gear.centerY(), dp(16));
     }
 
     @Override
@@ -173,7 +262,13 @@ public final class TouchControllerView extends View {
         float x = event.getX(index);
         float y = event.getY(index);
 
+        if (editMode) return handleEditTouch(event, action, index, pointerId, x, y);
+
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+            if (gear.contains(x, y)) {
+                openSettings();
+                return true;
+            }
             if (toggle.contains(x, y)) {
                 setControlsVisible(!controlsVisible);
                 return true;
@@ -225,10 +320,65 @@ public final class TouchControllerView extends View {
         return false;
     }
 
+    private boolean handleEditTouch(MotionEvent event, int action, int index,
+                                    int pointerId, float x, float y) {
+        if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
+            if (editDone.contains(x, y)) {
+                editMode = false;
+                selectedId = null;
+                dragPointer = -1;
+                invalidate();
+                return true;
+            }
+            if (editMinus.contains(x, y) || editPlus.contains(x, y)) {
+                if (selectedId != null) {
+                    float delta = editPlus.contains(x, y) ? .1f : -.1f;
+                    layout.setScale(selectedId, layout.scale(selectedId) + delta);
+                    reload();
+                }
+                return true;
+            }
+            for (int i = controls.size() - 1; i >= 0; --i) {
+                Control control = controls.get(i);
+                if (control.id != null && control.contains(x, y)) {
+                    selectedId = control.id;
+                    dragPointer = pointerId;
+                    dragX = x;
+                    dragY = y;
+                    invalidate();
+                    return true;
+                }
+            }
+            selectedId = null;
+            invalidate();
+            return true;
+        }
+        if (action == MotionEvent.ACTION_MOVE && selectedId != null && dragPointer >= 0) {
+            int i = event.findPointerIndex(dragPointer);
+            if (i >= 0 && lastWidth > 0 && lastHeight > 0) {
+                float mx = event.getX(i), my = event.getY(i);
+                layout.setOffset(selectedId,
+                    layout.offsetX(selectedId) + (mx - dragX) / lastWidth,
+                    layout.offsetY(selectedId) + (my - dragY) / lastHeight);
+                dragX = mx;
+                dragY = my;
+                reload();
+            }
+            return true;
+        }
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP ||
+            action == MotionEvent.ACTION_CANCEL) {
+            if (pointerId == dragPointer || action == MotionEvent.ACTION_CANCEL) {
+                dragPointer = -1;
+            }
+        }
+        return true;
+    }
+
     private void setControlsVisible(boolean visible) {
         controlsVisible = visible;
         preferences.edit().putBoolean(PREF_VISIBLE, visible).apply();
-        for (Control control : controls) control.release();
+        for (Control control : controls) control.reset();
         pointers.clear();
         if (lastWidth > 0 && lastHeight > 0) buildControls(lastWidth, lastHeight);
         sendState();
@@ -241,15 +391,19 @@ public final class TouchControllerView extends View {
             return;
         }
         int buttons = 0;
-        for (Control control : controls) buttons |= control.buttons();
+        int triggers = 0;
+        for (Control control : controls) {
+            buttons |= control.buttons();
+            triggers |= control.triggers();
+        }
         TouchControllerBridge.trySetState(
             buttons,
             leftStick == null ? 0 : leftStick.xValue,
             leftStick == null ? 0 : leftStick.yValue,
             rightStick == null ? 0 : rightStick.xValue,
             rightStick == null ? 0 : rightStick.yValue,
-            leftTrigger != null && leftTrigger.inUse ? 1 : 0,
-            rightTrigger != null && rightTrigger.inUse ? 1 : 0);
+            (triggers & LT_FLAG) != 0 ? 1 : 0,
+            (triggers & RT_FLAG) != 0 ? 1 : 0);
     }
 
     private boolean hasPhysicalController() {
@@ -261,7 +415,15 @@ public final class TouchControllerView extends View {
 
     private abstract class Control {
         boolean inUse;
+        String id;
+        Control withId(String value) { id = value; return this; }
         abstract boolean contains(float x, float y);
+        /** Bounding box, used to highlight the selected control in edit mode. */
+        abstract RectF bounds();
+        /** Release including any latched state (used when input is cleared). */
+        void reset() { release(); }
+        /** Analog trigger flags (LT_FLAG / RT_FLAG) currently held. */
+        int triggers() { return 0; }
         void press(float x, float y) { inUse = true; move(x, y); }
         void move(float x, float y) {}
         void release() { inUse = false; }
@@ -282,6 +444,7 @@ public final class TouchControllerView extends View {
             float dx = px - x, dy = py - y;
             return dx * dx + dy * dy <= radius * radius * 1.35f;
         }
+        RectF bounds() { return new RectF(x - radius, y - radius, x + radius, y + radius); }
         int buttons() { return inUse ? mask : 0; }
         void draw(Canvas canvas) {
             drawCircle(canvas, x, y, radius, inUse);
@@ -289,30 +452,59 @@ public final class TouchControllerView extends View {
         }
     }
 
-    private class RectButton extends Control {
+    /** A user-defined button that presses several inputs together. */
+    private final class MacroControl extends Control {
+        final Macro macro;
+        final float x;
+        final float y;
+        final float radius;
+        boolean latched;
+        MacroControl(Macro macro, float x, float y, float radius) {
+            this.macro = macro; this.x = x; this.y = y; this.radius = radius;
+        }
+        boolean contains(float px, float py) {
+            float dx = px - x, dy = py - y;
+            return dx * dx + dy * dy <= radius * radius * 1.35f;
+        }
+        RectF bounds() { return new RectF(x - radius, y - radius, x + radius, y + radius); }
+        boolean active() { return macro.latch ? latched : inUse; }
+        void press(float px, float py) {
+            super.press(px, py);
+            if (macro.latch) latched = !latched;
+        }
+        void reset() { release(); latched = false; }
+        int buttons() { return active() ? macro.mask & 0xFFFF : 0; }
+        int triggers() { return active() ? macro.mask & (LT_FLAG | RT_FLAG) : 0; }
+        void draw(Canvas canvas) {
+            drawCircle(canvas, x, y, radius, active());
+            drawLabel(canvas, macro.label, x, y, radius * (macro.label.length() > 3 ? .45f : .6f));
+        }
+    }
+
+    private final class RectButton extends Control {
         final String text;
         final RectF bounds;
         final int mask;
-        RectButton(String text, float x, float y, float width, float height, int mask) {
+        final int triggerFlag;
+        RectButton(String text, float x, float y, float width, float height,
+                   int mask, int triggerFlag) {
             this.text = text;
             this.bounds = new RectF(x - width / 2, y - height / 2,
                                     x + width / 2, y + height / 2);
             this.mask = mask;
+            this.triggerFlag = triggerFlag;
         }
         boolean contains(float x, float y) { return bounds.contains(x, y); }
+        RectF bounds() { return bounds; }
         int buttons() { return inUse ? mask : 0; }
+        int triggers() { return inUse ? triggerFlag : 0; }
         void draw(Canvas canvas) {
             fill.setColor(inUse ? Color.argb(190, 255, 112, 28) : Color.argb(105, 12, 12, 15));
             stroke.setColor(Color.argb(205, 255, 255, 255));
             canvas.drawRoundRect(bounds, dp(10), dp(10), fill);
             canvas.drawRoundRect(bounds, dp(10), dp(10), stroke);
-            drawLabel(canvas, text, bounds.centerX(), bounds.centerY(), dp(11));
-        }
-    }
-
-    private final class Trigger extends RectButton {
-        Trigger(String text, float x, float y, float width, float height, boolean left) {
-            super(text, x, y, width, height, 0);
+            drawLabel(canvas, text, bounds.centerX(), bounds.centerY(),
+                      Math.min(dp(11) * Math.max(1f, bounds.height() / dp(34)), bounds.height() * .6f));
         }
     }
 
@@ -331,6 +523,9 @@ public final class TouchControllerView extends View {
         boolean contains(float x, float y) {
             float dx = x - centerX, dy = y - centerY;
             return dx * dx + dy * dy <= radius * radius * 1.55f;
+        }
+        RectF bounds() {
+            return new RectF(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
         }
         void move(float x, float y) {
             float dx = (x - centerX) / radius;
@@ -359,6 +554,9 @@ public final class TouchControllerView extends View {
         Dpad(float x, float y, float radius) { centerX = x; centerY = y; this.radius = radius; }
         boolean contains(float x, float y) {
             return Math.abs(x - centerX) <= radius && Math.abs(y - centerY) <= radius;
+        }
+        RectF bounds() {
+            return new RectF(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
         }
         void move(float x, float y) {
             float dx = x - centerX, dy = y - centerY;
