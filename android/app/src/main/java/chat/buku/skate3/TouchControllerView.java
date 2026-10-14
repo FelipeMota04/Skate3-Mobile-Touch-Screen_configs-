@@ -32,13 +32,20 @@ public final class TouchControllerView extends View {
     private boolean controlsVisible;
     private RectF toggle = new RectF();
     private final RectF gear = new RectF();
-    private final RectF editDone = new RectF();
-    private final RectF editMinus = new RectF();
-    private final RectF editPlus = new RectF();
+    // Edit toolbar buttons, left to right.
+    private static final int BAR_RESET = 0, BAR_ALL = 1, BAR_MULTI = 2, BAR_MINUS = 3,
+                             BAR_DONE = 4, BAR_PLUS = 5, BAR_MACROS = 6, BAR_COUNT = 7;
+    private final RectF[] editBar = new RectF[BAR_COUNT];
     private final TouchLayout layout;
     private boolean editMode;
-    private String selectedId;
+    private final java.util.Set<String> selected = new java.util.LinkedHashSet<>();
+    private boolean multiSelect;
     private int dragPointer = -1;
+    private boolean pinchActive;
+    private int pinchId1 = -1;
+    private int pinchId2 = -1;
+    private float pinchStartDistance;
+    private final java.util.Map<String, Float> pinchStartScales = new java.util.HashMap<>();
     private float dragX;
     private float dragY;
     private float lastWidth;
@@ -176,26 +183,38 @@ public final class TouchControllerView extends View {
         gear.set(toggle.right + dp(8), toggleTop, toggle.right + dp(8) + barHeight,
                  toggleTop + barHeight);
 
-        // Edit-layout toolbar: [ - ] [ DONE ] [ + ]
-        float doneW = unit * 1.3f;
-        editDone.set(width * .5f - doneW / 2, toggleTop, width * .5f + doneW / 2,
-                     toggleTop + barHeight);
-        editMinus.set(editDone.left - dp(8) - barHeight, toggleTop, editDone.left - dp(8),
-                      toggleTop + barHeight);
-        editPlus.set(editDone.right + dp(8), toggleTop, editDone.right + dp(8) + barHeight,
-                     toggleTop + barHeight);
+        // Edit-layout toolbar: [RESET][ALL][MULTI][-][DONE][+][MACROS]
+        float[] widths = { unit * 1.0f, unit * .7f, unit * 1.0f, barHeight, unit * 1.2f,
+                           barHeight, unit * 1.2f };
+        float gap = dp(6);
+        float total = gap * (BAR_COUNT - 1);
+        for (float w : widths) total += w;
+        float left = width * .5f - total / 2;
+        for (int i = 0; i < BAR_COUNT; ++i) {
+            editBar[i] = new RectF(left, toggleTop, left + widths[i], toggleTop + barHeight);
+            left += widths[i] + gap;
+        }
         sendState();
         invalidate();
     }
 
-    /** Opens the in-game touch controls settings panel. */
-    private void openSettings() {
+    /** Enters the on-screen layout editor (drag to move, pinch to resize). */
+    private void enterEditMode() {
         clearInput();
-        TouchControlsEditor.show(getContext(), this::reload, () -> {
-            editMode = true;
-            selectedId = null;
-            invalidate();
-        });
+        editMode = true;
+        selected.clear();
+        multiSelect = false;
+        pinchActive = false;
+        dragPointer = -1;
+        invalidate();
+    }
+
+    private void exitEditMode() {
+        editMode = false;
+        selected.clear();
+        pinchActive = false;
+        dragPointer = -1;
+        invalidate();
     }
 
     @Override
@@ -211,8 +230,8 @@ public final class TouchControllerView extends View {
         for (Control control : controls) control.draw(canvas);
     }
 
-    private void drawBarButton(Canvas canvas, RectF rect, String text) {
-        fill.setColor(Color.argb(175, 15, 15, 18));
+    private void drawBarButton(Canvas canvas, RectF rect, String text, boolean on) {
+        fill.setColor(on ? Color.argb(210, 255, 112, 28) : Color.argb(175, 15, 15, 18));
         stroke.setColor(Color.argb(220, 255, 112, 28));
         canvas.drawRoundRect(rect, dp(9), dp(9), fill);
         canvas.drawRoundRect(rect, dp(9), dp(9), stroke);
@@ -222,7 +241,7 @@ public final class TouchControllerView extends View {
     private void drawEditOverlay(Canvas canvas) {
         canvas.drawColor(Color.argb(70, 0, 0, 0));
         for (Control control : controls) {
-            if (control.id != null && control.id.equals(selectedId)) {
+            if (control.id != null && selected.contains(control.id)) {
                 stroke.setColor(Color.argb(255, 255, 112, 28));
                 stroke.setStrokeWidth(dp(3));
                 RectF b = control.bounds();
@@ -231,13 +250,21 @@ public final class TouchControllerView extends View {
                 stroke.setStrokeWidth(dp(2));
             }
         }
-        drawBarButton(canvas, editMinus, "-");
-        drawBarButton(canvas, editDone, LauncherStrings.text(getContext(), "Done"));
-        drawBarButton(canvas, editPlus, "+");
+        String[] names = { "Reset", "All", multiSelect ? "Multi ON" : "Multi", "-",
+                           "Done", "+", "Macros" };
+        for (int i = 0; i < BAR_COUNT; ++i) {
+            boolean small = i == BAR_MINUS || i == BAR_PLUS;
+            drawBarButton(canvas, editBar[i], small ? names[i] : t(names[i]),
+                          i == BAR_MULTI && multiSelect);
+        }
         label.setTextSize(dp(11));
-        canvas.drawText(LauncherStrings.text(getContext(), "EDIT LAYOUT") + " - " +
-                        LauncherStrings.text(getContext(), "Drag a button to move it"),
-                        width() / 2f, editDone.bottom + dp(22), label);
+        canvas.drawText(t("Pinch with two fingers to resize") + "  \u2022  " +
+                        t("Drag to move") + "  \u2022  " + selected.size() + " " + t("selected"),
+                        width() / 2f, editBar[BAR_DONE].bottom + dp(22), label);
+    }
+
+    private String t(String english) {
+        return LauncherStrings.text(getContext(), english);
     }
 
     private float width() { return getWidth(); }
@@ -266,7 +293,7 @@ public final class TouchControllerView extends View {
 
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
             if (gear.contains(x, y)) {
-                openSettings();
+                enterEditMode();
                 return true;
             }
             if (toggle.contains(x, y)) {
@@ -320,55 +347,158 @@ public final class TouchControllerView extends View {
         return false;
     }
 
+    private Control controlAt(float x, float y) {
+        for (int i = controls.size() - 1; i >= 0; --i) {
+            Control control = controls.get(i);
+            if (control.id != null && control.contains(x, y)) return control;
+        }
+        return null;
+    }
+
+    private void scaleSelection(float delta) {
+        for (String id : selected) layout.setScale(id, layout.scale(id) + delta);
+        reload();
+    }
+
+    private void onBarButton(int button) {
+        switch (button) {
+            case BAR_DONE:
+                exitEditMode();
+                break;
+            case BAR_ALL:
+                selected.clear();
+                for (Control control : controls) {
+                    if (control.id != null) selected.add(control.id);
+                }
+                break;
+            case BAR_MULTI:
+                multiSelect = !multiSelect;
+                break;
+            case BAR_MINUS:
+                scaleSelection(-.1f);
+                break;
+            case BAR_PLUS:
+                scaleSelection(.1f);
+                break;
+            case BAR_RESET:
+                new android.app.AlertDialog.Builder(getContext())
+                    .setMessage(t("Reset sizes and positions of all buttons to the default layout? Your macros are kept."))
+                    .setNegativeButton(t("Cancel"), null)
+                    .setPositiveButton(t("Reset"), (d, w) -> {
+                        layout.resetLayout();
+                        reload();
+                    }).show();
+                break;
+            case BAR_MACROS:
+                TouchControlsEditor.show(getContext(), this::reload, null);
+                break;
+            default:
+                break;
+        }
+        invalidate();
+    }
+
+    private void startPinch(MotionEvent event) {
+        int i1 = 0, i2 = 1;
+        float x1 = event.getX(i1), y1 = event.getY(i1);
+        float x2 = event.getX(i2), y2 = event.getY(i2);
+        boolean onSelected = false;
+        for (Control control : controls) {
+            if (control.id != null && selected.contains(control.id) &&
+                (control.contains(x1, y1) || control.contains(x2, y2))) onSelected = true;
+        }
+        if (!onSelected && !multiSelect) {
+            Control hit = controlAt(x1, y1);
+            if (hit == null) hit = controlAt(x2, y2);
+            if (hit != null) {
+                selected.clear();
+                selected.add(hit.id);
+            }
+        } else if (!onSelected && selected.isEmpty()) {
+            return;
+        }
+        if (selected.isEmpty()) return;
+        pinchId1 = event.getPointerId(i1);
+        pinchId2 = event.getPointerId(i2);
+        pinchStartDistance = Math.max(1f, (float) Math.hypot(x1 - x2, y1 - y2));
+        pinchStartScales.clear();
+        for (String id : selected) pinchStartScales.put(id, layout.scale(id));
+        pinchActive = true;
+        dragPointer = -1;
+    }
+
     private boolean handleEditTouch(MotionEvent event, int action, int index,
                                     int pointerId, float x, float y) {
+        if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 2 &&
+            !pinchActive) {
+            startPinch(event);
+            invalidate();
+            return true;
+        }
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN) {
-            if (editDone.contains(x, y)) {
-                editMode = false;
-                selectedId = null;
-                dragPointer = -1;
-                invalidate();
-                return true;
+            for (int i = 0; i < BAR_COUNT; ++i) {
+                if (editBar[i] != null && editBar[i].contains(x, y)) {
+                    onBarButton(i);
+                    return true;
+                }
             }
-            if (editMinus.contains(x, y) || editPlus.contains(x, y)) {
-                if (selectedId != null) {
-                    float delta = editPlus.contains(x, y) ? .1f : -.1f;
-                    layout.setScale(selectedId, layout.scale(selectedId) + delta);
+            Control hit = controlAt(x, y);
+            if (hit != null) {
+                if (multiSelect) {
+                    if (!selected.remove(hit.id)) selected.add(hit.id);
+                } else if (!selected.contains(hit.id)) {
+                    selected.clear();
+                    selected.add(hit.id);
+                }
+                dragPointer = selected.contains(hit.id) ? pointerId : -1;
+                dragX = x;
+                dragY = y;
+            } else if (!multiSelect) {
+                selected.clear();
+            }
+            invalidate();
+            return true;
+        }
+        if (action == MotionEvent.ACTION_MOVE) {
+            if (pinchActive) {
+                int i1 = event.findPointerIndex(pinchId1);
+                int i2 = event.findPointerIndex(pinchId2);
+                if (i1 >= 0 && i2 >= 0) {
+                    float distance = (float) Math.hypot(event.getX(i1) - event.getX(i2),
+                                                        event.getY(i1) - event.getY(i2));
+                    float factor = distance / pinchStartDistance;
+                    for (java.util.Map.Entry<String, Float> entry : pinchStartScales.entrySet()) {
+                        layout.setScale(entry.getKey(), entry.getValue() * factor);
+                    }
                     reload();
                 }
                 return true;
             }
-            for (int i = controls.size() - 1; i >= 0; --i) {
-                Control control = controls.get(i);
-                if (control.id != null && control.contains(x, y)) {
-                    selectedId = control.id;
-                    dragPointer = pointerId;
-                    dragX = x;
-                    dragY = y;
-                    invalidate();
-                    return true;
+            if (!selected.isEmpty() && dragPointer >= 0) {
+                int i = event.findPointerIndex(dragPointer);
+                if (i >= 0 && lastWidth > 0 && lastHeight > 0) {
+                    float mx = event.getX(i), my = event.getY(i);
+                    for (String id : selected) {
+                        layout.setOffset(id,
+                            layout.offsetX(id) + (mx - dragX) / lastWidth,
+                            layout.offsetY(id) + (my - dragY) / lastHeight);
+                    }
+                    dragX = mx;
+                    dragY = my;
+                    reload();
                 }
-            }
-            selectedId = null;
-            invalidate();
-            return true;
-        }
-        if (action == MotionEvent.ACTION_MOVE && selectedId != null && dragPointer >= 0) {
-            int i = event.findPointerIndex(dragPointer);
-            if (i >= 0 && lastWidth > 0 && lastHeight > 0) {
-                float mx = event.getX(i), my = event.getY(i);
-                layout.setOffset(selectedId,
-                    layout.offsetX(selectedId) + (mx - dragX) / lastWidth,
-                    layout.offsetY(selectedId) + (my - dragY) / lastHeight);
-                dragX = mx;
-                dragY = my;
-                reload();
             }
             return true;
         }
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP ||
             action == MotionEvent.ACTION_CANCEL) {
-            if (pointerId == dragPointer || action == MotionEvent.ACTION_CANCEL) {
+            if (pinchActive && (pointerId == pinchId1 || pointerId == pinchId2 ||
+                                action == MotionEvent.ACTION_CANCEL)) {
+                pinchActive = false;
+            }
+            // After a pinch ends the remaining finger must not start dragging.
+            if (pointerId == dragPointer || action == MotionEvent.ACTION_CANCEL ||
+                action == MotionEvent.ACTION_POINTER_UP) {
                 dragPointer = -1;
             }
         }

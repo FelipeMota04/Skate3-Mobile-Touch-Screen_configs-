@@ -152,7 +152,18 @@ final class TouchLayout {
             .remove("dx." + target.id).remove("dy." + target.id).apply();
     }
 
-    /** Restores built-in sizes and positions and deletes every macro. */
+    /** Restores default sizes and positions of every control; macros are kept. */
+    void resetLayout() {
+        SharedPreferences.Editor editor = prefs.edit();
+        for (String key : prefs.getAll().keySet()) {
+            if (key.startsWith("scale.") || key.startsWith("dx.") || key.startsWith("dy.")) {
+                editor.remove(key);
+            }
+        }
+        editor.apply();
+    }
+
+    /** Factory reset: default sizes and positions, and deletes every macro. */
     void resetAll() {
         SharedPreferences.Editor editor = prefs.edit().clear();
         editor.apply();

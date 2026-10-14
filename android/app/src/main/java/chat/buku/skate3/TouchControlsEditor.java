@@ -50,13 +50,13 @@ final class TouchControlsEditor {
             .setTitle(t("Touch controls"))
             .setView(buildContent())
             .setPositiveButton(t("Done"), null)
-            .setNeutralButton(t("Reset all"), null)
+            .setNeutralButton(t("Factory reset"), null)
             .create();
         dialog.setOnShowListener(ignored -> {
             // Override so the dialog stays open while the reset is confirmed.
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v ->
                 new AlertDialog.Builder(context)
-                    .setMessage(t("Reset every size and position and delete all macros?"))
+                    .setMessage(t("Factory reset: restore the default layout and delete all macros?"))
                     .setNegativeButton(t("Cancel"), null)
                     .setPositiveButton(t("Reset"), (d, w) -> {
                         layout.resetAll();
@@ -118,18 +118,48 @@ final class TouchControlsEditor {
 
         Button preset = new Button(context);
         preset.setAllCaps(false);
-        preset.setText(t("Add LT + RT macro (Hall of Meat)"));
-        preset.setOnClickListener(v -> {
-            TouchLayout.Macro macro = layout.newMacro(
-                "LT+RT", TouchLayout.LT_FLAG | TouchLayout.RT_FLAG, false);
-            List<TouchLayout.Macro> all = layout.macros();
-            all.add(macro);
-            layout.saveMacros(all);
-            changed();
-            rebuild();
-        });
+        preset.setText(t("Quick macros (presets)"));
+        preset.setOnClickListener(v -> showPresets());
         panel.addView(preset);
         return scroll;
+    }
+
+    /** Ready-made macros: label, description, mask, toggle mode. */
+    private static final Object[][] PRESETS = {
+        {"LT+RT", "Hall of Meat: both triggers held together",
+            TouchLayout.LT_FLAG | TouchLayout.RT_FLAG, false},
+        {"LT+RT", "Both triggers locked (tap on, tap off) - frees both thumbs",
+            TouchLayout.LT_FLAG | TouchLayout.RT_FLAG, true},
+        {"HLD L", "Hold LT locked (tap on, tap off)", TouchLayout.LT_FLAG, true},
+        {"HLD R", "Hold RT locked (tap on, tap off)", TouchLayout.RT_FLAG, true},
+        {"LB+RB", "Both bumpers with one finger",
+            TouchLayout.LB | TouchLayout.RB, false},
+        {"LT+A", "LT + A together", TouchLayout.LT_FLAG | TouchLayout.A, false},
+        {"RT+A", "RT + A together", TouchLayout.RT_FLAG | TouchLayout.A, false},
+        {"LT+X", "LT + X together", TouchLayout.LT_FLAG | TouchLayout.X, false},
+        {"RT+B", "RT + B together", TouchLayout.RT_FLAG | TouchLayout.B, false},
+        {"L3+R3", "Both stick clicks with one finger",
+            TouchLayout.L3 | TouchLayout.R3, false},
+    };
+
+    private void showPresets() {
+        String[] items = new String[PRESETS.length];
+        for (int i = 0; i < items.length; ++i) {
+            items[i] = PRESETS[i][0] + " - " + t((String) PRESETS[i][1]);
+        }
+        new AlertDialog.Builder(context)
+            .setTitle(t("Quick macros (presets)"))
+            .setItems(items, (d, which) -> {
+                Object[] preset = PRESETS[which];
+                List<TouchLayout.Macro> all = layout.macros();
+                all.add(layout.newMacro((String) preset[0], (Integer) preset[2],
+                                        (Boolean) preset[3]));
+                layout.saveMacros(all);
+                changed();
+                rebuild();
+            })
+            .setNegativeButton(t("Cancel"), null)
+            .show();
     }
 
     private TextView header(String title) {

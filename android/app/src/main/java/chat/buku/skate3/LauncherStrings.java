@@ -121,6 +121,30 @@ final class LauncherStrings {
         put("Done", "Concluir");
         put("Reset all", "Restaurar tudo");
         put("Reset", "Restaurar");
+        put("All", "Todos");
+        put("Multi", "Vários");
+        put("Multi ON", "Vários ON");
+        put("Macros", "Macros");
+        put("Pinch with two fingers to resize", "Pinça com dois dedos para redimensionar");
+        put("Drag to move", "Arraste para mover");
+        put("selected", "selecionado(s)");
+        put("Reset sizes and positions of all buttons to the default layout? Your macros are kept.",
+            "Restaurar tamanhos e posições de todos os botões ao layout padrão? Suas macros são mantidas.");
+        put("Factory reset", "Padrão de fábrica");
+        put("Factory reset: restore the default layout and delete all macros?",
+            "Padrão de fábrica: restaurar o layout padrão e apagar todas as macros?");
+        put("Quick macros (presets)", "Macros prontas");
+        put("Hall of Meat: both triggers held together", "Hall of Meat: os dois gatilhos juntos");
+        put("Both triggers locked (tap on, tap off) - frees both thumbs",
+            "Os dois gatilhos travados (toque liga, toque desliga) - libera os polegares");
+        put("Hold LT locked (tap on, tap off)", "LT travado (toque liga, toque desliga)");
+        put("Hold RT locked (tap on, tap off)", "RT travado (toque liga, toque desliga)");
+        put("Both bumpers with one finger", "Os dois bumpers com um dedo");
+        put("LT + A together", "LT + A juntos");
+        put("RT + A together", "RT + A juntos");
+        put("LT + X together", "LT + X juntos");
+        put("RT + B together", "RT + B juntos");
+        put("Both stick clicks with one finger", "Os dois cliques dos analógicos com um dedo");
         put("Reset every size and position and delete all macros?",
             "Restaurar todos os tamanhos e posições e apagar todas as macros?");
         put("Move buttons on screen", "Mover botões na tela");
