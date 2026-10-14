@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -22,6 +23,7 @@ import java.util.List;
  * tells the overlay (if any) to reload the layout.
  */
 final class TouchControlsEditor {
+    private static final int MAX_LABEL = 8;
     private final Context context;
     private final TouchLayout layout;
     private final Runnable onChanged;
@@ -219,6 +221,12 @@ final class TouchControlsEditor {
         row.addView(label, new LinearLayout.LayoutParams(0,
                                                          ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
+        Button rename = new Button(context);
+        rename.setAllCaps(false);
+        rename.setText(t("Rename"));
+        rename.setOnClickListener(v -> showRenameDialog(macro));
+        row.addView(rename);
+
         Button edit = new Button(context);
         edit.setAllCaps(false);
         edit.setText(t("Edit"));
@@ -237,6 +245,34 @@ final class TouchControlsEditor {
         return row;
     }
 
+    private void showRenameDialog(TouchLayout.Macro macro) {
+        EditText name = new EditText(context);
+        name.setSingleLine(true);
+        name.setFilters(new android.text.InputFilter[] {
+            new android.text.InputFilter.LengthFilter(MAX_LABEL) });
+        name.setText(macro.label);
+        name.setSelection(name.getText().length());
+        FrameLayout box = new FrameLayout(context);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(name);
+        new AlertDialog.Builder(context)
+            .setTitle(t("Rename macro"))
+            .setView(box)
+            .setNegativeButton(t("Cancel"), null)
+            .setPositiveButton(t("Save"), (d, w) -> {
+                String label = name.getText().toString().trim();
+                if (label.isEmpty()) return;
+                List<TouchLayout.Macro> all = layout.macros();
+                for (TouchLayout.Macro m : all) {
+                    if (m.id.equals(macro.id)) m.label = label;
+                }
+                layout.saveMacros(all);
+                changed();
+                rebuild();
+            })
+            .show();
+    }
+
     /** Creates a macro, or edits {@code existing} when it is non-null. */
     private void showMacroDialog(TouchLayout.Macro existing) {
         LinearLayout panel = new LinearLayout(context);
@@ -244,10 +280,10 @@ final class TouchControlsEditor {
         panel.setPadding(dp(20), dp(8), dp(20), dp(8));
 
         EditText name = new EditText(context);
-        name.setHint(t("Button label (max 5 characters)"));
+        name.setHint(t("Button label (max 8 characters)"));
         name.setSingleLine(true);
         name.setFilters(new android.text.InputFilter[] {
-            new android.text.InputFilter.LengthFilter(5) });
+            new android.text.InputFilter.LengthFilter(MAX_LABEL) });
         if (existing != null) name.setText(existing.label);
         panel.addView(name);
 
@@ -291,7 +327,7 @@ final class TouchControlsEditor {
                 }
                 String label = name.getText().toString().trim();
                 if (label.isEmpty()) label = TouchLayout.describeMask(mask).replace(" + ", "+");
-                if (label.length() > 5) label = label.substring(0, 5);
+                if (label.length() > MAX_LABEL) label = label.substring(0, MAX_LABEL);
                 if (existing == null) {
                     List<TouchLayout.Macro> all = layout.macros();
                     all.add(layout.newMacro(label, mask, latch.isChecked()));

@@ -607,7 +607,7 @@ public final class TouchControllerView extends View {
         int triggers() { return active() ? macro.mask & (LT_FLAG | RT_FLAG) : 0; }
         void draw(Canvas canvas) {
             drawCircle(canvas, x, y, radius, active());
-            drawLabel(canvas, macro.label, x, y, radius * (macro.label.length() > 3 ? .45f : .6f));
+            drawLabel(canvas, macro.label, x, y, radius * (macro.label.length() > 5 ? .34f : macro.label.length() > 3 ? .45f : .6f));
         }
     }
 

@@ -157,7 +157,9 @@ final class LauncherStrings {
         put("toggle", "alternar");
         put("Edit", "Editar");
         put("Delete", "Apagar");
-        put("Button label (max 5 characters)", "Nome do botão (máx. 5 caracteres)");
+        put("Button label (max 8 characters)", "Nome do botão (máx. 8 caracteres)");
+        put("Rename", "Renomear");
+        put("Rename macro", "Renomear macro");
         put("Inputs pressed together", "Comandos acionados juntos");
         put("Toggle mode (tap to hold, tap again to release)",
             "Modo alternar (toque para segurar, toque de novo para soltar)");
